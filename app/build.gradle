@@ -7,11 +7,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'de.roman.samsungirremote'
+        applicationId 'de.mason.samsungtvircontroller'
         minSdk 23
         targetSdk 36
-        versionCode 2
-        versionName '1.1.0-android16'
+        versionCode 3
+        versionName '1.1.1-android16'
     }
 
     compileOptions {

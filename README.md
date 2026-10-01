@@ -1,6 +1,9 @@
-# Samsung TV IR Remote – OnePlus 13R / Android 16
+# TV IR Controller – OnePlus 13R / Android 16
 
-Native Android-Fernbedienung für ältere Samsung-TVs (ca. 2010, klassische Samsung/AA59-Infrarotcodes).
+Native Android-Infrarot-Fernbedienung für:
+
+- ältere Samsung-TVs mit klassischen Samsung32/AA59-Codes
+- Philips Android TVs mit Chassis **QM16.3E** über **RC6 Mode 0**
 
 ## Zielgerät
 - OnePlus 13R
@@ -8,35 +11,40 @@ Native Android-Fernbedienung für ältere Samsung-TVs (ca. 2010, klassische Sams
 - `compileSdk 36`
 - `targetSdk 36`
 - `minSdk 23`
-- Consumer-IR über Android `ConsumerIrManager`
-- Trägerfrequenz: 38 kHz
+- Android `ConsumerIrManager`
 
-## Funktionen
-Power, Source, Mute, Menu, Info, Guide, Tools, Exit, Lautstärke +/−, Kanal +/−,
-Navigation + OK/Return, Ziffern 0–9, Farbtasten und Mediensteuerung.
+## Samsung-Profil
+- Samsung32
+- 38 kHz
+- Power, Source, Mute, Menu, Info, Guide, Tools, Exit
+- Lautstärke / Kanal
+- Navigation / OK
+- Ziffern 0–9
+- Farbtasten
+- Mediensteuerung
 
-Die App benötigt kein Internet, kein Konto und keine Standortberechtigung. Im Manifest ist ausschließlich
-die für Consumer-IR erforderliche Berechtigung `android.permission.TRANSMIT_IR` eingetragen.
-Beim Start prüft die App, ob Android einen IR-Sender meldet.
+## Philips QM16.3E
+- Philips RC6 Mode 0
+- 36 kHz
+- System/Adresse 0
+- Power, Source, Mute, Menu, Info, Guide, Home, Exit
+- Lautstärke / Kanal
+- Navigation / OK / Zurück
+- Ziffern 0–9
+- Farbtasten
+- Ambilight
+- Rewind, Play, Pause, Fast Forward, Stop, Record
 
-## Android-16-Anpassungen
-- API 36 als Compile- und Target-SDK
-- Android Gradle Plugin 8.13.2
-- Gradle 8.13
-- Java 17
-- Edge-to-edge Insets berücksichtigt
+Die App merkt sich das zuletzt ausgewählte TV-Profil.
+
+## Sicherheit / Berechtigungen
+Die App benötigt kein Internet, kein Konto und keine Standortberechtigung.
+Im Manifest ist nur `android.permission.TRANSMIT_IR` für den Consumer-IR-Sender eingetragen.
+
+## Version
+`1.2.0-android16`
 
 ## APK bauen
-### GitHub Actions
-Unter **Actions → Build Android APK → Run workflow** starten.
-Das Artefakt heißt `SamsungTVIRRemote-debug-apk`.
+GitHub Actions erzeugt eine klar benannte APK:
 
-### Lokal
-Mit Android SDK Platform 36, JDK 17 und Gradle 8.13:
-
-```bash
-gradle :app:assembleDebug
-```
-
-APK danach:
-`app/build/outputs/apk/debug/app-debug.apk`
+`TV-IR-Controller_v1.2.0_Android16_Samsung-Philips-QM16.3E.apk`

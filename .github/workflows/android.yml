@@ -31,7 +31,11 @@ jobs:
           "$AAPT" dump badging "$APK"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
 
+      - name: Give APK a clear file name
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/debug/TV-IR-Controller_v1.2.0_Android16_Samsung-Philips-QM16.3E.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: SamsungTVIRRemote-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: TV-IR-Controller_v1.2.0_Android16_Samsung-Philips-QM16.3E
+          path: app/build/outputs/apk/debug/TV-IR-Controller_v1.2.0_Android16_Samsung-Philips-QM16.3E.apk

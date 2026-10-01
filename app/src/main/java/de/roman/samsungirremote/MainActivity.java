@@ -1,6 +1,10 @@
 package de.roman.samsungirremote;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.hardware.ConsumerIrManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,61 +18,98 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.StateListDrawable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
 
-    private static final int CARRIER_HZ = 38000;
+    private enum DeviceMode {
+        SAMSUNG,
+        PHILIPS_QM163E
+    }
+
+    private static final int SAMSUNG_CARRIER_HZ = 38000;
+    private static final int PHILIPS_CARRIER_HZ = 36000;
+    private static final int RC6_UNIT_US = 444;
+    private static final String PREFS = "tv_ir_prefs";
+    private static final String PREF_DEVICE = "device";
 
     // Samsung AA59 / classic Samsung TV 32-bit IR codes.
-    private static final long POWER   = 0xE0E040BFL;
-    private static final long SOURCE  = 0xE0E0807FL;
-    private static final long VOL_UP  = 0xE0E0E01FL;
-    private static final long VOL_DN  = 0xE0E0D02FL;
-    private static final long CH_UP   = 0xE0E048B7L;
-    private static final long CH_DN   = 0xE0E008F7L;
-    private static final long MUTE    = 0xE0E0F00FL;
-    private static final long MENU    = 0xE0E058A7L;
-    private static final long GUIDE   = 0xE0E0F20DL;
-    private static final long TOOLS   = 0xE0E0D22DL;
-    private static final long INFO    = 0xE0E0F807L;
-    private static final long UP      = 0xE0E006F9L;
-    private static final long DOWN    = 0xE0E08679L;
-    private static final long LEFT    = 0xE0E0A659L;
-    private static final long RIGHT   = 0xE0E046B9L;
-    private static final long OK      = 0xE0E016E9L;
-    private static final long RETURN  = 0xE0E01AE5L;
-    private static final long EXIT    = 0xE0E0B44BL;
-    private static final long RED     = 0xE0E036C9L;
-    private static final long GREEN   = 0xE0E028D7L;
-    private static final long YELLOW  = 0xE0E0A857L;
-    private static final long BLUE    = 0xE0E06897L;
-    private static final long STOP    = 0xE0E0629DL;
-    private static final long PREV    = 0xE0E0A25DL;
-    private static final long PLAY    = 0xE0E0E21DL;
-    private static final long PAUSE   = 0xE0E052ADL;
-    private static final long NEXT    = 0xE0E012EDL;
+    private static final long S_POWER   = 0xE0E040BFL;
+    private static final long S_SOURCE  = 0xE0E0807FL;
+    private static final long S_VOL_UP  = 0xE0E0E01FL;
+    private static final long S_VOL_DN  = 0xE0E0D02FL;
+    private static final long S_CH_UP   = 0xE0E048B7L;
+    private static final long S_CH_DN   = 0xE0E008F7L;
+    private static final long S_MUTE    = 0xE0E0F00FL;
+    private static final long S_MENU    = 0xE0E058A7L;
+    private static final long S_GUIDE   = 0xE0E0F20DL;
+    private static final long S_TOOLS   = 0xE0E0D22DL;
+    private static final long S_INFO    = 0xE0E0F807L;
+    private static final long S_UP      = 0xE0E006F9L;
+    private static final long S_DOWN    = 0xE0E08679L;
+    private static final long S_LEFT    = 0xE0E0A659L;
+    private static final long S_RIGHT   = 0xE0E046B9L;
+    private static final long S_OK      = 0xE0E016E9L;
+    private static final long S_RETURN  = 0xE0E01AE5L;
+    private static final long S_EXIT    = 0xE0E0B44BL;
+    private static final long S_RED     = 0xE0E036C9L;
+    private static final long S_GREEN   = 0xE0E028D7L;
+    private static final long S_YELLOW  = 0xE0E0A857L;
+    private static final long S_BLUE    = 0xE0E06897L;
+    private static final long S_STOP    = 0xE0E0629DL;
+    private static final long S_PREV    = 0xE0E0A25DL;
+    private static final long S_PLAY    = 0xE0E0E21DL;
+    private static final long S_PAUSE   = 0xE0E052ADL;
+    private static final long S_NEXT    = 0xE0E012EDL;
 
-    private static final long[] DIGITS = {
-            0xE0E08877L, // 0
-            0xE0E020DFL, // 1
-            0xE0E0A05FL, // 2
-            0xE0E0609FL, // 3
-            0xE0E010EFL, // 4
-            0xE0E0906FL, // 5
-            0xE0E050AFL, // 6
-            0xE0E030CFL, // 7
-            0xE0E0B04FL, // 8
-            0xE0E0708FL  // 9
+    private static final long[] S_DIGITS = {
+            0xE0E08877L, 0xE0E020DFL, 0xE0E0A05FL, 0xE0E0609FL, 0xE0E010EFL,
+            0xE0E0906FL, 0xE0E050AFL, 0xE0E030CFL, 0xE0E0B04FL, 0xE0E0708FL
     };
+
+    // Philips RC6 Mode 0, system/address 0. Values are decimal command codes.
+    private static final int P_POWER      = 12;
+    private static final int P_MUTE       = 13;
+    private static final int P_INFO       = 15;
+    private static final int P_VOL_UP     = 16;
+    private static final int P_VOL_DN     = 17;
+    private static final int P_CH_UP      = 32;
+    private static final int P_CH_DN      = 33;
+    private static final int P_FFWD       = 40;
+    private static final int P_REWIND     = 43;
+    private static final int P_PLAY       = 44;
+    private static final int P_PAUSE      = 48;
+    private static final int P_STOP       = 49;
+    private static final int P_RECORD     = 55;
+    private static final int P_SOURCE     = 56;
+    private static final int P_BACK       = 10;
+    private static final int P_HOME       = 84;
+    private static final int P_UP         = 88;
+    private static final int P_DOWN       = 89;
+    private static final int P_LEFT       = 90;
+    private static final int P_RIGHT      = 91;
+    private static final int P_OK         = 92;
+    private static final int P_RED        = 109;
+    private static final int P_GREEN      = 110;
+    private static final int P_YELLOW     = 111;
+    private static final int P_BLUE       = 112;
+    private static final int P_AMBILIGHT  = 143;
+    private static final int P_EXIT       = 159;
+    private static final int P_MENU       = 191;
+    private static final int P_GUIDE      = 204;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private ConsumerIrManager irManager;
     private TextView statusView;
+    private TextView subtitleView;
+    private LinearLayout remoteContainer;
+    private Button samsungButton;
+    private Button philipsButton;
+    private DeviceMode currentDevice = DeviceMode.SAMSUNG;
+    private boolean philipsToggle = false;
 
     private final int bg = Color.rgb(15, 23, 42);
     private final int panel = Color.rgb(30, 41, 59);
@@ -77,6 +118,7 @@ public class MainActivity extends Activity {
     private final int good = Color.rgb(34, 197, 94);
     private final int bad = Color.rgb(239, 68, 68);
     private final int accent = Color.rgb(37, 99, 235);
+    private final int selected = Color.rgb(14, 116, 144);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,105 +152,257 @@ public class MainActivity extends Activity {
                 ScrollView.LayoutParams.WRAP_CONTENT));
 
         TextView title = new TextView(this);
-        title.setText("Samsung TV IR Remote");
+        title.setText("TV IR Controller");
         title.setTextColor(text);
         title.setTextSize(26);
         title.setGravity(Gravity.CENTER_HORIZONTAL);
         title.setPadding(0, 0, 0, dp(4));
         root.addView(title, matchWrap());
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("Samsung AA59 / ältere TV-Modelle • 38 kHz");
-        subtitle.setTextColor(subText);
-        subtitle.setTextSize(14);
-        subtitle.setGravity(Gravity.CENTER_HORIZONTAL);
-        subtitle.setPadding(0, 0, 0, dp(12));
-        root.addView(subtitle, matchWrap());
+        subtitleView = new TextView(this);
+        subtitleView.setTextColor(subText);
+        subtitleView.setTextSize(14);
+        subtitleView.setGravity(Gravity.CENTER_HORIZONTAL);
+        subtitleView.setPadding(0, 0, 0, dp(12));
+        root.addView(subtitleView, matchWrap());
+
+        addDeviceSelector(root);
 
         statusView = new TextView(this);
         statusView.setTextSize(14);
         statusView.setGravity(Gravity.CENTER);
         statusView.setPadding(dp(12), dp(10), dp(12), dp(10));
-        root.addView(statusView, matchWrap());
-        refreshIrStatus();
+        LinearLayout.LayoutParams statusLp = matchWrap();
+        statusLp.setMargins(0, dp(8), 0, 0);
+        root.addView(statusView, statusLp);
 
-        addSpacer(root, 14);
-        addRow(root,
-                spec("⏻  Power", POWER, Color.rgb(153, 27, 27), false),
-                spec("Source", SOURCE, accent, false));
+        remoteContainer = new LinearLayout(this);
+        remoteContainer.setOrientation(LinearLayout.VERTICAL);
+        root.addView(remoteContainer, matchWrap());
 
-        addRow(root,
-                spec("Mute", MUTE, panel, false),
-                spec("Menu", MENU, panel, false),
-                spec("Info", INFO, panel, false));
-
-        addRow(root,
-                spec("Guide", GUIDE, panel, false),
-                spec("Tools", TOOLS, panel, false),
-                spec("Exit", EXIT, panel, false));
-
-        addSection(root, "Lautstärke / Programme");
-        addRow(root,
-                spec("VOL +", VOL_UP, panel, true),
-                spec("CH +", CH_UP, panel, true));
-        addRow(root,
-                spec("VOL −", VOL_DN, panel, true),
-                spec("CH −", CH_DN, panel, true));
-
-        addSection(root, "Navigation");
-        addRow(root,
-                spec("", -1, bg, false),
-                spec("▲", UP, panel, true),
-                spec("", -1, bg, false));
-        addRow(root,
-                spec("◀", LEFT, panel, true),
-                spec("OK", OK, accent, false),
-                spec("▶", RIGHT, panel, true));
-        addRow(root,
-                spec("Return", RETURN, panel, false),
-                spec("▼", DOWN, panel, true),
-                spec("Exit", EXIT, panel, false));
-
-        addSection(root, "Ziffern");
-        for (int r = 0; r < 3; r++) {
-            int a = r * 3 + 1;
-            addRow(root,
-                    spec(String.valueOf(a), DIGITS[a], panel, false),
-                    spec(String.valueOf(a + 1), DIGITS[a + 1], panel, false),
-                    spec(String.valueOf(a + 2), DIGITS[a + 2], panel, false));
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String saved = prefs.getString(PREF_DEVICE, DeviceMode.SAMSUNG.name());
+        DeviceMode initial;
+        try {
+            initial = DeviceMode.valueOf(saved);
+        } catch (IllegalArgumentException ex) {
+            initial = DeviceMode.SAMSUNG;
         }
-        addRow(root,
-                spec("", -1, bg, false),
-                spec("0", DIGITS[0], panel, false),
-                spec("", -1, bg, false));
-
-        addSection(root, "Farbtasten");
-        addRow(root,
-                spec("Rot", RED, Color.rgb(185, 28, 28), false),
-                spec("Grün", GREEN, Color.rgb(21, 128, 61), false),
-                spec("Gelb", YELLOW, Color.rgb(202, 138, 4), false),
-                spec("Blau", BLUE, Color.rgb(29, 78, 216), false));
-
-        addSection(root, "Medien");
-        addRow(root,
-                spec("⏮", PREV, panel, false),
-                spec("▶", PLAY, panel, false),
-                spec("⏸", PAUSE, panel, false),
-                spec("⏭", NEXT, panel, false));
-        addRow(root,
-                spec("■ Stop", STOP, panel, false));
-
-        TextView hint = new TextView(this);
-        hint.setText("Tipp: Oberkante des OnePlus 13R auf den IR-Empfänger des Fernsehers richten. VOL/CH und Pfeiltasten können gehalten werden.");
-        hint.setTextColor(subText);
-        hint.setTextSize(13);
-        hint.setPadding(0, dp(18), 0, 0);
-        root.addView(hint, matchWrap());
+        selectDevice(initial);
 
         setContentView(scroll);
     }
 
+    private void addDeviceSelector(LinearLayout root) {
+        TextView label = new TextView(this);
+        label.setText("Fernseher");
+        label.setTextColor(subText);
+        label.setTextSize(13);
+        label.setPadding(0, dp(4), 0, dp(4));
+        root.addView(label, matchWrap());
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        root.addView(row, matchWrap());
+
+        samsungButton = new Button(this);
+        samsungButton.setText("Samsung");
+        samsungButton.setTextColor(text);
+        samsungButton.setAllCaps(false);
+        samsungButton.setOnClickListener(v -> selectDevice(DeviceMode.SAMSUNG));
+
+        philipsButton = new Button(this);
+        philipsButton.setText("Philips QM16.3E");
+        philipsButton.setTextColor(text);
+        philipsButton.setAllCaps(false);
+        philipsButton.setOnClickListener(v -> selectDevice(DeviceMode.PHILIPS_QM163E));
+
+        LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+        lp1.setMargins(dp(4), dp(2), dp(4), dp(2));
+        row.addView(samsungButton, lp1);
+
+        LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, dp(52), 1.25f);
+        lp2.setMargins(dp(4), dp(2), dp(4), dp(2));
+        row.addView(philipsButton, lp2);
+    }
+
+    private void selectDevice(DeviceMode mode) {
+        handler.removeCallbacksAndMessages(null);
+        currentDevice = mode;
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+                .edit()
+                .putString(PREF_DEVICE, mode.name())
+                .apply();
+
+        samsungButton.setBackground(makeSelector(mode == DeviceMode.SAMSUNG ? selected : panel));
+        philipsButton.setBackground(makeSelector(mode == DeviceMode.PHILIPS_QM163E ? selected : panel));
+
+        if (mode == DeviceMode.SAMSUNG) {
+            subtitleView.setText("Samsung AA59 / ältere TV-Modelle • Samsung32 • 38 kHz");
+        } else {
+            subtitleView.setText("Philips QM16.3E • RC6 Mode 0 • 36 kHz");
+        }
+
+        refreshIrStatus();
+        buildRemoteControls();
+    }
+
+    private void buildRemoteControls() {
+        remoteContainer.removeAllViews();
+        addSpacer(remoteContainer, 12);
+
+        if (currentDevice == DeviceMode.SAMSUNG) {
+            buildSamsungControls();
+        } else {
+            buildPhilipsControls();
+        }
+
+        TextView hint = new TextView(this);
+        hint.setText(currentDevice == DeviceMode.SAMSUNG
+                ? "Samsung: Oberkante des OnePlus 13R auf den IR-Empfänger richten. VOL/CH und Pfeiltasten können gehalten werden."
+                : "Philips QM16.3E: RC6 Mode 0 bei 36 kHz. Oberkante des OnePlus 13R auf den IR-Sensor des Fernsehers richten.");
+        hint.setTextColor(subText);
+        hint.setTextSize(13);
+        hint.setPadding(0, dp(18), 0, 0);
+        remoteContainer.addView(hint, matchWrap());
+    }
+
+    private void buildSamsungControls() {
+        addRow(remoteContainer,
+                spec("⏻ Power", S_POWER, Color.rgb(153, 27, 27), false),
+                spec("Source", S_SOURCE, accent, false));
+
+        addRow(remoteContainer,
+                spec("Mute", S_MUTE, panel, false),
+                spec("Menu", S_MENU, panel, false),
+                spec("Info", S_INFO, panel, false));
+
+        addRow(remoteContainer,
+                spec("Guide", S_GUIDE, panel, false),
+                spec("Tools", S_TOOLS, panel, false),
+                spec("Exit", S_EXIT, panel, false));
+
+        addVolumeChannel(remoteContainer, S_VOL_UP, S_VOL_DN, S_CH_UP, S_CH_DN);
+        addNavigation(remoteContainer, S_UP, S_DOWN, S_LEFT, S_RIGHT, S_OK, S_RETURN, S_EXIT);
+        addDigits(remoteContainer, S_DIGITS);
+
+        addSection(remoteContainer, "Farbtasten");
+        addRow(remoteContainer,
+                spec("Rot", S_RED, Color.rgb(185, 28, 28), false),
+                spec("Grün", S_GREEN, Color.rgb(21, 128, 61), false),
+                spec("Gelb", S_YELLOW, Color.rgb(202, 138, 4), false),
+                spec("Blau", S_BLUE, Color.rgb(29, 78, 216), false));
+
+        addSection(remoteContainer, "Medien");
+        addRow(remoteContainer,
+                spec("⏮", S_PREV, panel, false),
+                spec("▶", S_PLAY, panel, false),
+                spec("⏸", S_PAUSE, panel, false),
+                spec("⏭", S_NEXT, panel, false));
+        addRow(remoteContainer, spec("■ Stop", S_STOP, panel, false));
+    }
+
+    private void buildPhilipsControls() {
+        addRow(remoteContainer,
+                spec("⏻ Power", P_POWER, Color.rgb(153, 27, 27), false),
+                spec("Source", P_SOURCE, accent, false));
+
+        addRow(remoteContainer,
+                spec("Mute", P_MUTE, panel, false),
+                spec("Menu", P_MENU, panel, false),
+                spec("Info", P_INFO, panel, false));
+
+        addRow(remoteContainer,
+                spec("Guide", P_GUIDE, panel, false),
+                spec("Home", P_HOME, accent, false),
+                spec("Exit", P_EXIT, panel, false));
+
+        addRow(remoteContainer,
+                spec("Ambilight", P_AMBILIGHT, panel, false));
+
+        addVolumeChannel(remoteContainer, P_VOL_UP, P_VOL_DN, P_CH_UP, P_CH_DN);
+        addNavigation(remoteContainer, P_UP, P_DOWN, P_LEFT, P_RIGHT, P_OK, P_BACK, P_EXIT);
+
+        long[] digits = new long[10];
+        for (int i = 0; i <= 9; i++) {
+            digits[i] = i;
+        }
+        addDigits(remoteContainer, digits);
+
+        addSection(remoteContainer, "Farbtasten");
+        addRow(remoteContainer,
+                spec("Rot", P_RED, Color.rgb(185, 28, 28), false),
+                spec("Grün", P_GREEN, Color.rgb(21, 128, 61), false),
+                spec("Gelb", P_YELLOW, Color.rgb(202, 138, 4), false),
+                spec("Blau", P_BLUE, Color.rgb(29, 78, 216), false));
+
+        addSection(remoteContainer, "Medien");
+        addRow(remoteContainer,
+                spec("⏪", P_REWIND, panel, true),
+                spec("▶", P_PLAY, panel, false),
+                spec("⏸", P_PAUSE, panel, false),
+                spec("⏩", P_FFWD, panel, true));
+        addRow(remoteContainer,
+                spec("■ Stop", P_STOP, panel, false),
+                spec("● Rec", P_RECORD, panel, false));
+    }
+
+    private void addVolumeChannel(LinearLayout root, long volUp, long volDn, long chUp, long chDn) {
+        addSection(root, "Lautstärke / Programme");
+        addRow(root,
+                spec("VOL +", volUp, panel, true),
+                spec("CH +", chUp, panel, true));
+        addRow(root,
+                spec("VOL −", volDn, panel, true),
+                spec("CH −", chDn, panel, true));
+    }
+
+    private void addNavigation(
+            LinearLayout root,
+            long up,
+            long down,
+            long left,
+            long right,
+            long ok,
+            long back,
+            long exit) {
+
+        addSection(root, "Navigation");
+        addRow(root,
+                spec("", -1, bg, false),
+                spec("▲", up, panel, true),
+                spec("", -1, bg, false));
+        addRow(root,
+                spec("◀", left, panel, true),
+                spec("OK", ok, accent, false),
+                spec("▶", right, panel, true));
+        addRow(root,
+                spec("Zurück", back, panel, false),
+                spec("▼", down, panel, true),
+                spec("Exit", exit, panel, false));
+    }
+
+    private void addDigits(LinearLayout root, long[] digits) {
+        addSection(root, "Ziffern");
+        for (int r = 0; r < 3; r++) {
+            int a = r * 3 + 1;
+            addRow(root,
+                    spec(String.valueOf(a), digits[a], panel, false),
+                    spec(String.valueOf(a + 1), digits[a + 1], panel, false),
+                    spec(String.valueOf(a + 2), digits[a + 2], panel, false));
+        }
+        addRow(root,
+                spec("", -1, bg, false),
+                spec("0", digits[0], panel, false),
+                spec("", -1, bg, false));
+    }
+
     private void refreshIrStatus() {
+        if (statusView == null) {
+            return;
+        }
+
         boolean hasEmitter = irManager != null && irManager.hasIrEmitter();
         if (!hasEmitter) {
             statusView.setText("⚠ Android meldet keinen IR-Sender");
@@ -217,24 +411,36 @@ public class MainActivity extends Activity {
             return;
         }
 
-        boolean supports38 = false;
+        int carrier = currentCarrier();
+        boolean supportsCarrier = false;
         boolean rangesKnown = false;
         ConsumerIrManager.CarrierFrequencyRange[] ranges = irManager.getCarrierFrequencies();
         if (ranges != null) {
             rangesKnown = true;
             for (ConsumerIrManager.CarrierFrequencyRange range : ranges) {
-                if (range.getMinFrequency() <= CARRIER_HZ && range.getMaxFrequency() >= CARRIER_HZ) {
-                    supports38 = true;
+                if (range.getMinFrequency() <= carrier && range.getMaxFrequency() >= carrier) {
+                    supportsCarrier = true;
                     break;
                 }
             }
         }
 
-        String suffix = !rangesKnown ? " • Frequenzbereich nicht gemeldet"
-                : (supports38 ? " • 38 kHz verfügbar" : " • 38 kHz nicht im gemeldeten Bereich");
+        int khz = carrier / 1000;
+        String suffix = !rangesKnown
+                ? " • Frequenzbereich nicht gemeldet"
+                : (supportsCarrier
+                ? " • " + khz + " kHz verfügbar"
+                : " • " + khz + " kHz nicht im gemeldeten Bereich");
+
         statusView.setText("✓ IR-Sender erkannt" + suffix);
         statusView.setTextColor(Color.WHITE);
         statusView.setBackground(makeRounded(good, 16));
+    }
+
+    private int currentCarrier() {
+        return currentDevice == DeviceMode.PHILIPS_QM163E
+                ? PHILIPS_CARRIER_HZ
+                : SAMSUNG_CARRIER_HZ;
     }
 
     private void addSection(LinearLayout root, String label) {
@@ -281,7 +487,7 @@ public class MainActivity extends Activity {
             if (s.repeat) {
                 bindRepeating(b, s.label, s.code);
             } else {
-                b.setOnClickListener(v -> sendCommand(s.label, s.code, v));
+                b.setOnClickListener(v -> sendCommand(s.label, s.code, v, true));
             }
         }
     }
@@ -291,15 +497,15 @@ public class MainActivity extends Activity {
         repeater[0] = new Runnable() {
             @Override
             public void run() {
-                sendCommand(label, code, button);
-                handler.postDelayed(this, 140);
+                sendCommand(label, code, button, false);
+                handler.postDelayed(this, currentDevice == DeviceMode.PHILIPS_QM163E ? 110 : 140);
             }
         };
 
         button.setOnTouchListener((v, event) -> {
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    sendCommand(label, code, v);
+                    sendCommand(label, code, v, true);
                     handler.postDelayed(repeater[0], 430);
                     return true;
                 case MotionEvent.ACTION_UP:
@@ -313,7 +519,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void sendCommand(String label, long code, View source) {
+    private void sendCommand(String label, long code, View source, boolean newPress) {
         if (irManager == null || !irManager.hasIrEmitter()) {
             Toast.makeText(this, "Android stellt keinen IR-Sender bereit.", Toast.LENGTH_SHORT).show();
             refreshIrStatus();
@@ -321,11 +527,28 @@ public class MainActivity extends Activity {
         }
 
         try {
-            int[] pattern = buildSamsungPattern(code);
-            irManager.transmit(CARRIER_HZ, pattern);
+            int carrier;
+            int[] pattern;
+
+            if (currentDevice == DeviceMode.PHILIPS_QM163E) {
+                carrier = PHILIPS_CARRIER_HZ;
+                if (newPress) {
+                    philipsToggle = !philipsToggle;
+                }
+                pattern = buildPhilipsRc6Pattern(0, (int) code, philipsToggle);
+            } else {
+                carrier = SAMSUNG_CARRIER_HZ;
+                pattern = buildSamsungPattern(code);
+            }
+
+            irManager.transmit(carrier, pattern);
             source.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            statusView.setText(String.format(Locale.ROOT,
-                    "Gesendet: %s  •  0x%08X", label, code));
+
+            String detail = currentDevice == DeviceMode.PHILIPS_QM163E
+                    ? String.format(Locale.ROOT, "RC6 0.%03d", code)
+                    : String.format(Locale.ROOT, "0x%08X", code);
+
+            statusView.setText("Gesendet: " + label + " • " + detail);
             statusView.setTextColor(Color.WHITE);
             statusView.setBackground(makeRounded(good, 16));
         } catch (RuntimeException ex) {
@@ -355,6 +578,63 @@ public class MainActivity extends Activity {
         }
         pattern[p] = 560;
         return pattern;
+    }
+
+    /**
+     * Philips RC6 Mode 0:
+     * header 6T mark + 2T space, start bit (1), 3 mode bits (000),
+     * double-width toggle bit, 8-bit address and 8-bit command, MSB first.
+     * Logical 1 = mark->space, logical 0 = space->mark.
+     */
+    private int[] buildPhilipsRc6Pattern(int address, int command, boolean toggle) {
+        List<Integer> durations = new ArrayList<>();
+
+        appendIrSegment(durations, true, 6 * RC6_UNIT_US);
+        appendIrSegment(durations, false, 2 * RC6_UNIT_US);
+
+        // Leading/start bit = 1.
+        appendIrSegment(durations, true, RC6_UNIT_US);
+        appendIrSegment(durations, false, RC6_UNIT_US);
+
+        int raw = ((toggle ? 1 : 0) << 16)
+                | ((address & 0xFF) << 8)
+                | (command & 0xFF);
+
+        // 20 bits after the leading bit: mode[2:0], toggle, address[7:0], command[7:0].
+        for (int bit = 19; bit >= 0; bit--) {
+            boolean one = ((raw >>> bit) & 1) != 0;
+            boolean isToggleBit = bit == 16;
+            int half = isToggleBit ? 2 * RC6_UNIT_US : RC6_UNIT_US;
+
+            if (one) {
+                appendIrSegment(durations, true, half);
+                appendIrSegment(durations, false, half);
+            } else {
+                appendIrSegment(durations, false, half);
+                appendIrSegment(durations, true, half);
+            }
+        }
+
+        int[] result = new int[durations.size()];
+        for (int i = 0; i < durations.size(); i++) {
+            result[i] = durations.get(i);
+        }
+        return result;
+    }
+
+    /**
+     * ConsumerIrManager expects alternating MARK/SPACE durations starting with MARK.
+     * Manchester encoding can produce adjacent equal levels at bit boundaries, so
+     * equal neighbouring levels are merged into one duration.
+     */
+    private void appendIrSegment(List<Integer> durations, boolean mark, int durationUs) {
+        boolean nextWouldBeMark = durations.size() % 2 == 0;
+        if (durations.isEmpty() || nextWouldBeMark == mark) {
+            durations.add(durationUs);
+        } else {
+            int last = durations.size() - 1;
+            durations.set(last, durations.get(last) + durationUs);
+        }
     }
 
     private StateListDrawable makeSelector(int normalColor) {
